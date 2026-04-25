@@ -1,3 +1,4 @@
+from homeassistant.components.integration.sensor import IntegrationSensor
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -14,21 +15,20 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
 
-# =========================
-# SETUP
-# =========================
+###
+# Setup - registers all sensor entities, passing the coordinator for coordinated data retrieval.
+###
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
     async_add_entities([
         BatterySOC(coordinator, entry),
-        BatteryPower(coordinator, entry),
 
         SolarInputPower(coordinator, entry),
 
-        GridImportPower(coordinator, entry),
-        GridExportPower(coordinator, entry),
+        TotalImportPower(coordinator, entry),
+        TotalExportPower(coordinator, entry),
 
         EPSOutputPower(coordinator, entry),
         EPSReverseInputPower(coordinator, entry),
@@ -39,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 # =========================
-# BASE
+# Sensor base class
 # =========================
 class ZendureSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, entry: ConfigEntry):
@@ -80,22 +80,6 @@ class BatterySOC(ZendureSensor):
         if not self.coordinator.data:
             return None
         return self.coordinator.data["properties"].get("electricLevel")
-
-
-class BatteryPower(ZendureSensor):
-    _attr_unique_id = "zendure_battery_power"
-    _attr_name = "Battery Power"
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-
-    @property
-    def native_value(self):
-        if not self.coordinator.data:
-            return None
-
-        p = self.coordinator.data["properties"]
-        return p.get("outputHomePower", 0) - p.get("packInputPower", 0)
 
 
 class BatteryVoltage(ZendureSensor):
@@ -153,12 +137,12 @@ class SolarInputPower(ZendureSensor):
 
 
 # =========================
-# GRID
+# Input/Output
 # =========================
 
-class GridImportPower(ZendureSensor):
-    _attr_unique_id = "zendure_grid_import"
-    _attr_name = "Grid Import Power"
+class TotalImportPower(ZendureSensor):
+    _attr_unique_id = "zendure_power_import"
+    _attr_name = "Power Import"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfPower.WATT
@@ -167,22 +151,28 @@ class GridImportPower(ZendureSensor):
     def native_value(self):
         if not self.coordinator.data:
             return None
-        return self.coordinator.data["properties"].get("gridInputPower", 0)
+        
+        grid_power = self.coordinator.data["properties"].get("gridInputPower", 0)
+        solar_power = self.coordinator.data["properties"].get("solarInputPower", 0)
+        # minus chimney outputHomePower?
+        return grid_power + solar_power
 
-
-class GridExportPower(ZendureSensor):
-    _attr_unique_id = "zendure_grid_export"
-    _attr_name = "Grid Export Power"
+class TotalExportPower(ZendureSensor):
+    _attr_unique_id = "zendure_power_export"
+    _attr_name = "Power Export"
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfPower.WATT
-
+    
     @property
     def native_value(self):
         if not self.coordinator.data:
             return None
-        return self.coordinator.data["properties"].get("gridOffPower", 0)
-
+        
+        home_power = self.coordinator.data["properties"].get("outputHomePower", 0)
+        #pack_power = self.coordinator.data["properties"].get("outputPackPower", 0)
+        
+        return home_power # + pack_power
 
 # =========================
 # EPS OUTPUT (EMERGENCY POWER)
@@ -203,7 +193,7 @@ class EPSOutputPower(ZendureSensor):
         p = self.coordinator.data["properties"]
 
         if p.get("offGridState", 0) == 1:
-            return p.get("outputHomePower", 0)
+            return p.get("gridOffPower", 0)
 
         return 0
 

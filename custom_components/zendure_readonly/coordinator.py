@@ -22,7 +22,7 @@ class ZendureCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="zendure",
-            update_interval=timedelta(seconds=10),  # tune as needed
+            update_interval=timedelta(seconds=1),  # tune as needed
         )
 
     async def _async_update_data(self):
