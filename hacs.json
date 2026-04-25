@@ -1,0 +1,7 @@
+{
+  "name": "Zendure Readonly",
+  "content_in_root": false,
+  "domains": ["sensor"],
+  "homeassistant": "2026.0.0",
+  "render_readme": true
+}

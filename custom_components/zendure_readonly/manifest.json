@@ -1,0 +1,9 @@
+{
+  "domain": "zendure_readonly",
+  "name": "Zendure Readonly",
+  "version": "1.0.0",
+  "documentation": "",
+  "requirements": [],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}
